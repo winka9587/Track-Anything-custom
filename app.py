@@ -362,7 +362,7 @@ def generate_video_from_frames(frames, output_path, fps=30):
     torchvision.io.write_video(output_path, frames, fps=fps, video_codec="libx264")
     return output_path
 
-def mask_save_frome_video(video_state, interactive_state):
+def mask_save_frome_video(video_state, interactive_state, mask_dropdown):
     mask_output_path = './result/mask/'
     operation_log = [("",""), ("save mask to {}/{}.".format(mask_output_path, video_state["video_name"]),"Normal")]
     
@@ -372,17 +372,16 @@ def mask_save_frome_video(video_state, interactive_state):
     if not os.path.exists('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0])):
         os.makedirs('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]))
     i = 0
-    
+    print("save mask to {}/{}/xx.png.".format(mask_output_path, video_state["video_name"]))
     try:
         # for mask in video_state["masks"]:
         for mask in video_state["masks"]:    
             # interactive_state["multi_mask"]["masks"]
             cv2.imwrite(os.path.join('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]), '{:05d}.png'.format(i)), mask)
-            print(os.path.join('save mask to {}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]), '{:05d}.png'.format(i)))
             i+=1
     except:
         operation_log = [("Error! Something wrong when saving mask image to: {}".format(mask_output_path),"Error"), ("","")]
-    return operation_log
+    return mask_output_path, operation_log
 
 # args, defined in track_anything.py
 args = parse_augment()
@@ -560,8 +559,8 @@ with gr.Blocks() as iface:
     
     mask_save_button.click(
         fn=mask_save_frome_video,
-        inputs=[video_state, interactive_state],
-        outputs=[run_status]
+        inputs=[video_state, interactive_state, mask_dropdown],
+        outputs=[video_output, run_status]
     )
     # click to get mask
     mask_dropdown.change(
