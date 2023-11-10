@@ -37,6 +37,17 @@ def download_checkpoint(url, folder, filename):
         print("download successfully!")
 
     return filepath
+    def save_mask(mask, video_state):
+        video_state["masks"][video_state["select_frame_number"]] = mask
+        video_state["logits"][video_state["select_frame_number"]] = None
+        painted_image = mask_painter(video_state["origin_images"][video_state["select_frame_number"]], mask)
+        video_state["painted_images"][video_state["select_frame_number"]] = painted_image
+
+    def track_anything(video_input, click_input):
+        # ... existing code ...
+        interface = gr.Interface(fn=track_anything, inputs=[video_input, click_input], outputs=output, title=title, description=description, theme=theme, layout=layout)
+        interface.add_button("Save Mask", save_mask, video_state)
+        interface.launch()
 
 def download_checkpoint_from_google_drive(file_id, folder, filename):
     os.makedirs(folder, exist_ok=True)
@@ -120,6 +131,7 @@ def get_frames_from_video(video_input, video_state):
                         gr.update(visible=True), gr.update(visible=True), \
                         gr.update(visible=True), gr.update(visible=True), \
                         gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), \
                         gr.update(visible=True, value=operation_log)
 
 def run_example(example):
@@ -350,6 +362,27 @@ def generate_video_from_frames(frames, output_path, fps=30):
     torchvision.io.write_video(output_path, frames, fps=fps, video_codec="libx264")
     return output_path
 
+def mask_save_frome_video(video_state, interactive_state):
+    mask_output_path = './result/mask/'
+    operation_log = [("",""), ("save mask to {}/{}.".format(mask_output_path, video_state["video_name"]),"Normal")]
+    
+    if video_state["video_name"] == '':
+        operation_log = [("Error! need tracking video first","Error"), ("","")]
+    
+    if not os.path.exists('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0])):
+        os.makedirs('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]))
+    i = 0
+    
+    try:
+        # for mask in video_state["masks"]:
+        for mask in video_state["masks"]:    
+            # interactive_state["multi_mask"]["masks"]
+            cv2.imwrite(os.path.join('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]), '{:05d}.png'.format(i)), mask)
+            print(os.path.join('save mask to {}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]), '{:05d}.png'.format(i)))
+            i+=1
+    except:
+        operation_log = [("Error! Something wrong when saving mask image to: {}".format(mask_output_path),"Error"), ("","")]
+    return operation_log
 
 # args, defined in track_anything.py
 args = parse_augment()
@@ -378,7 +411,7 @@ SAM_checkpoint = download_checkpoint(sam_checkpoint_url, folder, sam_checkpoint)
 xmem_checkpoint = download_checkpoint(xmem_checkpoint_url, folder, xmem_checkpoint)
 e2fgvi_checkpoint = download_checkpoint_from_google_drive(e2fgvi_checkpoint_id, folder, e2fgvi_checkpoint)
 args.port = 12212
-args.device = "cuda:3"
+# args.device = "cuda:3"
 # args.mask_save = True
 
 # initialize sam, xmem, e2fgvi models
@@ -389,7 +422,7 @@ title = """<p><h1 align="center">Track-Anything</h1></p>
     """
 description = """<p>Gradio demo for Track Anything, a flexible and interactive tool for video object tracking, segmentation, and inpainting. I To use it, simply upload your video, or click one of the examples to load them. Code: <a href="https://github.com/gaomingqi/Track-Anything">https://github.com/gaomingqi/Track-Anything</a> <a href="https://huggingface.co/spaces/watchtowerss/Track-Anything?duplicate=true"><img style="display: inline; margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space" /></a></p>"""
 
-
+# 在Tracking, Inpainting这两个button的右侧添加一个MaskSave按钮，与interactive_state【'mask_save']绑定，用于保存mask
 with gr.Blocks() as iface:
     """
         state for 
@@ -467,6 +500,7 @@ with gr.Blocks() as iface:
                     with gr.Row():
                         tracking_video_predict_button = gr.Button(value="Tracking", visible=False)
                         inpaint_video_predict_button = gr.Button(value="Inpainting", visible=False)
+                        mask_save_button = gr.Button(value="MaskSave", visible=False)
 
     # first step: get the video information 
     extract_frames_button.click(
@@ -476,7 +510,7 @@ with gr.Blocks() as iface:
         ],
         outputs=[video_state, video_info, template_frame,
                  image_selection_slider, track_pause_number_slider,point_prompt, clear_button_click, Add_mask_button, template_frame,
-                 tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button, inpaint_video_predict_button, run_status]
+                 tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button, inpaint_video_predict_button, mask_save_button, run_status]
     )   
 
     # second step: select images from slider
@@ -523,7 +557,12 @@ with gr.Blocks() as iface:
         inputs=[video_state, interactive_state, mask_dropdown],
         outputs=[video_output, run_status]
     )
-
+    
+    mask_save_button.click(
+        fn=mask_save_frome_video,
+        inputs=[video_state, interactive_state],
+        outputs=[run_status]
+    )
     # click to get mask
     mask_dropdown.change(
         fn=show_mask,
@@ -574,7 +613,7 @@ with gr.Blocks() as iface:
             video_output,
             template_frame,
             tracking_video_predict_button, image_selection_slider , track_pause_number_slider,point_prompt, clear_button_click, 
-            Add_mask_button, template_frame, tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button,inpaint_video_predict_button, run_status
+            Add_mask_button, template_frame, tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button,inpaint_video_predict_button, mask_save_button, run_status
         ],
         queue=False,
         show_progress=False)
