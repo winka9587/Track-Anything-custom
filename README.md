@@ -1,3 +1,13 @@
+# Custom Changes
+
+[x] Add mark image save function.
+
+[ ] Customize save_path and remind save status
+
+[ ] Report error after click MaskSave button
+
+[ ] Memory Leak Problem, Espically for refresh page and upload many video
+
 <!-- ![](./assets/track-anything-logo.jpg) -->
 
 <div align=center>
@@ -20,10 +30,7 @@
 </a>
 </div>
 
-[x] Add mark image save function.
-[ ] Customize save_path and remind save status
-[ ] Report error after click MaskSave button
-[ ] Memory Leak Problem, Espically for refresh page and upload many video
+
 
 ***
 
