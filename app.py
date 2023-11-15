@@ -290,6 +290,7 @@ def vos_tracking_video(video_state, interactive_state, mask_dropdown):
 
     #### shanggao code for mask save
     if interactive_state["mask_save"]:
+        # report error after click MaskSave button
         if not os.path.exists('./result/mask/{}'.format(video_state["video_name"].split('.')[0])):
             os.makedirs('./result/mask/{}'.format(video_state["video_name"].split('.')[0]))
         i = 0
