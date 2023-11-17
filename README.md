@@ -1,12 +1,12 @@
 # Custom Changes
 
-\* [x] Add mark image save function.
+- [x] Add mark image save function.
 
-\* [ ] Customize save_path and remind save status
+- [ ] Customize save_path and remind save status
 
-\* [ ] Report error after click MaskSave button
+- [ ] Report error after click MaskSave button
 
-\* [ ] Memory Leak Problem, Espically for refresh page and upload many video
+- [ ] Memory Leak Problem, Espically for refresh page and upload many video
 
 # Origin
 
