@@ -81,6 +81,55 @@ def get_prompt(click_state, click_input):
     return prompt
 
 
+# extract frames from selected image folder
+def get_frames_from_folder(folder_path, fps=30):
+    """
+    Args:
+        folder_path:str
+    Return 
+        video_state, video_info, video_state["origin_images"][0], gr.update(visible=True, maximum=len(frames), value=1), gr.update(visible=True, maximum=len(frames), value=len(frames)), \
+                        gr.update(visible=True),\
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), \
+                        gr.update(visible=True, value=operation_log)
+    """
+    frames = []
+    user_name = time.time()
+    operation_log = [("",""),("Read images from folder already. Try click the image for adding targets to track and inpaint.","Normal")]
+    try:
+        for filename in os.listdir(folder_path):
+            if filename.endswith(".png"):
+                frame = cv2.imread(os.path.join(folder_path, filename))
+                frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    except (OSError, TypeError, ValueError, KeyError, SyntaxError) as e:
+        print("read_frame_source:{} error. {}\n".format(folder_path, str(e)))
+    image_size = (frames[0].shape[0],frames[0].shape[1]) 
+    # initialize video_state
+    video_state = {
+        "user_name": user_name,
+        "video_name": os.path.split(folder_path)[-1],
+        "origin_images": frames,
+        "painted_images": frames.copy(),
+        "masks": [np.zeros((frames[0].shape[0],frames[0].shape[1]), np.uint8)]*len(frames),
+        "logits": [None]*len(frames),
+        "select_frame_number": 0,
+        "fps": fps
+        }
+    video_info = "Video Name: {}, FPS: {}, Total Frames: {}, Image Size:{}".format(video_state["video_name"], video_state["fps"], len(frames), image_size)
+    model.samcontroler.sam_controler.reset_image() 
+    model.samcontroler.sam_controler.set_image(video_state["origin_images"][0])
+    return video_state, video_info, video_state["origin_images"][0], gr.update(visible=True, maximum=len(frames), value=1), gr.update(visible=True, maximum=len(frames), value=len(frames)), \
+                        gr.update(visible=True),\
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), \
+                        gr.update(visible=True, value=operation_log)
+                        
 # extract frames from upload video
 def get_frames_from_video(video_input, video_state):
     """
@@ -463,11 +512,15 @@ with gr.Blocks() as iface:
         with gr.Column():
             with gr.Row(scale=0.4):
                 video_input = gr.Video(autosize=True)
+                
+                    
                 with gr.Column():
                     video_info = gr.Textbox(label="Video Info")
                     resize_info = gr.Textbox(value="If you want to use the inpaint function, it is best to git clone the repo and use a machine with more VRAM locally. \
                                             Alternatively, you can use the resize ratio slider to scale down the original image to around 360P resolution for faster processing.", label="Tips for running this demo.")
                     resize_ratio_slider = gr.Slider(minimum=0.02, maximum=1, step=0.02, value=1, label="Resize ratio", visible=True)
+                    
+                    image_folder_input = gr.inputs.Textbox(lines=2, placeholder="input folder path"), 
           
 
             with gr.Row():
@@ -476,6 +529,7 @@ with gr.Blocks() as iface:
                     # extract frames
                     with gr.Column():
                         extract_frames_button = gr.Button(value="Get video info", interactive=True, variant="primary") 
+                        extract_frames_by_folder_button  = gr.Button(value="Get video info By Image Folder", interactive=True, variant="primary") 
 
                      # click points settins, negative or positive, mode continuous or single
                     with gr.Row():
@@ -512,6 +566,16 @@ with gr.Blocks() as iface:
                  image_selection_slider, track_pause_number_slider,point_prompt, clear_button_click, Add_mask_button, template_frame,
                  tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button, inpaint_video_predict_button, mask_save_button, run_status]
     )   
+    
+    extract_frames_by_folder_button.click(
+        fn=get_frames_from_video,
+        inputs=[
+            image_folder_input, video_state
+        ],
+        outputs=[video_state, video_info, template_frame,
+                 image_selection_slider, track_pause_number_slider,point_prompt, clear_button_click, Add_mask_button, template_frame,
+                 tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button, inpaint_video_predict_button, mask_save_button, run_status]
+    )  
 
     # second step: select images from slider
     image_selection_slider.release(fn=select_template, 

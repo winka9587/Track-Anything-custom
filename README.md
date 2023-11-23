@@ -8,6 +8,8 @@
 
 - [ ] Memory Leak Problem, Espically for refresh page and upload many video
 
+- [ ] Add RGB Image Folder Replace Video.
+
 # Origin
 
 <!-- ![](./assets/track-anything-logo.jpg) -->
