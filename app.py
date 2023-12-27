@@ -365,20 +365,23 @@ def generate_video_from_frames(frames, output_path, fps=30):
 
 def mask_save_frome_video(video_state, interactive_state, mask_dropdown):
     mask_output_path = './result/mask/'
+    final_save_path = '{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0])
     operation_log = [("",""), ("save mask to {}/{}.".format(mask_output_path, video_state["video_name"]),"Normal")]
     
     if video_state["video_name"] == '':
         operation_log = [("Error! need tracking video first","Error"), ("","")]
     
-    if not os.path.exists('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0])):
-        os.makedirs('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]))
+    if not os.path.exists(final_save_path):
+        os.makedirs(final_save_path)
     i = 0
-    print("save mask to {}/{}/xx.png.".format(mask_output_path, video_state["video_name"]))
+    print("save mask to {}/xx.png.".format(final_save_path))
     try:
         # for mask in video_state["masks"]:
         for mask in video_state["masks"]:    
             # interactive_state["multi_mask"]["masks"]
-            cv2.imwrite(os.path.join('{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0]), '{:05d}.png'.format(i)), mask)
+            save_mask_i_path = os.path.join(final_save_path, '{:04d}.png'.format(i))
+            print("save mask: {}".format(save_mask_i_path))
+            cv2.imwrite(save_mask_i_path, mask)
             i+=1
     except:
         operation_log = [("Error! Something wrong when saving mask image to: {}".format(mask_output_path),"Error"), ("","")]
