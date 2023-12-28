@@ -134,6 +134,86 @@ def get_frames_from_video(video_input, video_state):
                         gr.update(visible=True), \
                         gr.update(visible=True, value=operation_log)
 
+def get_frames_from_video2(video_input, folder_input, video_state):
+    user_name = time.time()
+    frames = []
+    print("video_input: {}".format(video_input))
+    print("folder_input: {}".format(folder_input))
+    if video_input is not None and os.path.exists(video_input):
+        # 从视频文件中提取帧
+        operation_log = [("",""),("Upload video already. Try click the image for adding targets to track and inpaint.","Normal")]
+        cap = cv2.VideoCapture(video_input)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if ret:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frames.append(frame)
+            else:
+                break
+        cap.release()
+        video_info = f"Extracted {len(frames)} frames from video."
+        input_name = os.path.split(video_path)[-1]
+        fps = video_input['fps']
+    elif folder_input is not None and os.path.exists(folder_input):
+        operation_log = [("",""),("Upload img folder already. Try click the image for adding targets to track and inpaint.","Normal")]
+        # 从文件夹中读取图片作为帧
+        for filename in sorted(os.listdir(folder_input)):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                img_path = os.path.join(folder_input, filename)
+                img = cv2.imread(img_path)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                frames.append(img)
+        video_info = f"Loaded {len(frames)} images from folder."
+        input_name = folder_input.replace("/", "_").replace("\\", "_")+".mp4"
+        fps = 30
+    else:
+        return video_state, "No valid video or folder path provided."
+    image_size = (frames[0].shape[0],frames[0].shape[1]) 
+    # initialize video_state
+    video_state = {
+        "user_name": user_name,
+        "video_name": input_name,
+        "origin_images": frames,
+        "painted_images": frames.copy(),
+        "masks": [np.zeros((frames[0].shape[0],frames[0].shape[1]), np.uint8)]*len(frames),
+        "logits": [None]*len(frames),
+        "select_frame_number": 0,
+        "fps": fps
+        }
+    model.samcontroler.sam_controler.reset_image() 
+    model.samcontroler.sam_controler.set_image(video_state["origin_images"][0])
+    return video_state, video_info, video_state["origin_images"][0], gr.update(visible=True, maximum=len(frames), value=1), gr.update(visible=True, maximum=len(frames), value=len(frames)), \
+                        gr.update(visible=True),\
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), gr.update(visible=True), \
+                        gr.update(visible=True), \
+                        gr.update(visible=True, value=operation_log)
+
+# 新增函数：从给定文件夹路径读取所有图片
+def get_images_from_folder(folder_path, video_state):
+    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+        print("Invalid folder path")
+        return video_state, "Invalid folder path"
+    
+    images = []
+    for filename in sorted(os.listdir(folder_path)):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            img_path = os.path.join(folder_path, filename)
+            img = cv2.imread(img_path)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            images.append(img)
+
+    # 更新 video_state
+    video_state["origin_images"] = images
+    video_state["painted_images"] = images.copy()
+    video_state["masks"] = [np.zeros((images[0].shape[0], images[0].shape[1]), np.uint8)] * len(images)
+    video_state["logits"] = [None] * len(images)
+
+    return video_state, f"Loaded {len(images)} images from {folder_path}"
+
+
 def run_example(example):
     return video_input
 # get the select frame from gradio slider
@@ -468,6 +548,10 @@ with gr.Blocks() as iface:
                 video_input = gr.Video(autosize=True)
                 with gr.Column():
                     video_info = gr.Textbox(label="Video Info")
+                    # 新增函数：从给定文件夹路径读取所有图片
+                    folder_input = gr.Textbox(label="Enter folder path")
+                    confirm_button = gr.Button("Confirm")  # 新增确认按钮
+                    
                     resize_info = gr.Textbox(value="If you want to use the inpaint function, it is best to git clone the repo and use a machine with more VRAM locally. \
                                             Alternatively, you can use the resize ratio slider to scale down the original image to around 360P resolution for faster processing.", label="Tips for running this demo.")
                     resize_ratio_slider = gr.Slider(minimum=0.02, maximum=1, step=0.02, value=1, label="Resize ratio", visible=True)
@@ -507,14 +591,21 @@ with gr.Blocks() as iface:
 
     # first step: get the video information 
     extract_frames_button.click(
-        fn=get_frames_from_video,
+        fn=get_frames_from_video2,
         inputs=[
-            video_input, video_state
+            video_input, folder_input, video_state
         ],
         outputs=[video_state, video_info, template_frame,
                  image_selection_slider, track_pause_number_slider,point_prompt, clear_button_click, Add_mask_button, template_frame,
                  tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button, inpaint_video_predict_button, mask_save_button, run_status]
     )   
+    
+    # 使用确认按钮触发图片读取
+    confirm_button.click(
+        fn=get_images_from_folder,
+        inputs=[folder_input, video_state],
+        outputs=[video_state, video_info]
+    )
 
     # second step: select images from slider
     image_selection_slider.release(fn=select_template, 
