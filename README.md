@@ -2,13 +2,20 @@
 
 - [x] Add mark image save function.
 
-- [ ] Customize save_path and remind save status
+- [x] Customize save_path and remind save status
 
-- [ ] Report error after click MaskSave button
+- [x] Report error after click MaskSave button
+
+- [x] Add RGB Image Folder as input rather than video
 
 - [ ] Memory Leak Problem, Espically for refresh page and upload many video
 
-- [ ] Add RGB Image Folder Replace Video.
+
+## input images folder
+
+<div align=center>
+<img src="./assets/input_folder_operate.png" width="95%"/>
+</div>
 
 # Origin
 
