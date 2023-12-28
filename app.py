@@ -137,17 +137,20 @@ def get_frames_from_video(video_input, video_state):
 def get_frames_from_video2(video_input, folder_input, video_state):
     user_name = time.time()
     frames = []
+    frame_names = []
     print("video_input: {}".format(video_input))
     print("folder_input: {}".format(folder_input))
     if video_input is not None and os.path.exists(video_input):
         # 从视频文件中提取帧
         operation_log = [("",""),("Upload video already. Try click the image for adding targets to track and inpaint.","Normal")]
         cap = cv2.VideoCapture(video_input)
+        i = 0
         while cap.isOpened():
             ret, frame = cap.read()
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frames.append(frame)
+                frame_names.append("{:04d}".format(i))
             else:
                 break
         cap.release()
@@ -163,6 +166,7 @@ def get_frames_from_video2(video_input, folder_input, video_state):
                 img = cv2.imread(img_path)
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 frames.append(img)
+                frame_names.append("{:04d}".format(int(filename.split('.')[0])))
         video_info = f"Loaded {len(frames)} images from folder."
         input_name = folder_input.replace("/", "_").replace("\\", "_")+".mp4"
         fps = 30
@@ -174,6 +178,7 @@ def get_frames_from_video2(video_input, folder_input, video_state):
         "user_name": user_name,
         "video_name": input_name,
         "origin_images": frames,
+        "origin_image_names": frame_names,
         "painted_images": frames.copy(),
         "masks": [np.zeros((frames[0].shape[0],frames[0].shape[1]), np.uint8)]*len(frames),
         "logits": [None]*len(frames),
@@ -443,29 +448,29 @@ def generate_video_from_frames(frames, output_path, fps=30):
     torchvision.io.write_video(output_path, frames, fps=fps, video_codec="libx264")
     return output_path
 
-def mask_save_frome_video(video_state, interactive_state, mask_dropdown):
-    mask_output_path = './result/mask/'
-    final_save_path = '{}/{}'.format(mask_output_path, video_state["video_name"].split('.')[0])
-    operation_log = [("",""), ("save mask to {}/{}.".format(mask_output_path, video_state["video_name"]),"Normal")]
+def mask_save_frome_video(video_state, interactive_state, mask_dropdown, save_path):
+    if not save_path:
+        save_path = './result/mask/'
+    final_save_path = os.path.join(save_path, video_state["video_name"].split('.')[0])
+    operation_log = [("",""), ("save mask to {}".format(final_save_path), "Normal")]
     
     if video_state["video_name"] == '':
         operation_log = [("Error! need tracking video first","Error"), ("","")]
     
     if not os.path.exists(final_save_path):
         os.makedirs(final_save_path)
-    i = 0
     print("save mask to {}/xx.png.".format(final_save_path))
     try:
         # for mask in video_state["masks"]:
-        for mask in video_state["masks"]:    
+        for i in range(len(video_state["masks"])):
+            mask = video_state["masks"][i]    
             # interactive_state["multi_mask"]["masks"]
-            save_mask_i_path = os.path.join(final_save_path, '{:04d}.png'.format(i))
+            save_mask_i_path = os.path.join(final_save_path, '{}.png'.format(video_state['origin_image_names'][i]))
             print("save mask: {}".format(save_mask_i_path))
             cv2.imwrite(save_mask_i_path, mask)
-            i+=1
     except:
-        operation_log = [("Error! Something wrong when saving mask image to: {}".format(mask_output_path),"Error"), ("","")]
-    return mask_output_path, operation_log
+        operation_log = [("Error! Something wrong when saving mask image to: {}".format(final_save_path),"Error"), ("","")]
+    return operation_log
 
 # args, defined in track_anything.py
 args = parse_augment()
@@ -550,6 +555,7 @@ with gr.Blocks() as iface:
                     video_info = gr.Textbox(label="Video Info")
                     # 新增函数：从给定文件夹路径读取所有图片
                     folder_input = gr.Textbox(label="Enter folder path")
+                    save_path_input = gr.Textbox(label="Enter path to save masks", value="./result/mask/")
                     confirm_button = gr.Button("Confirm")  # 新增确认按钮
                     
                     resize_info = gr.Textbox(value="If you want to use the inpaint function, it is best to git clone the repo and use a machine with more VRAM locally. \
@@ -654,8 +660,8 @@ with gr.Blocks() as iface:
     
     mask_save_button.click(
         fn=mask_save_frome_video,
-        inputs=[video_state, interactive_state, mask_dropdown],
-        outputs=[video_output, run_status]
+        inputs=[video_state, interactive_state, mask_dropdown, save_path_input],
+        outputs=[run_status]
     )
     # click to get mask
     mask_dropdown.change(
