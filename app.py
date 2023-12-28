@@ -199,29 +199,6 @@ def get_frames_from_video2(video_input, folder_input, video_state):
                         gr.update(visible=True), \
                         gr.update(visible=True, value=operation_log)
 
-# 新增函数：从给定文件夹路径读取所有图片
-def get_images_from_folder(folder_path, video_state):
-    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        print("Invalid folder path")
-        return video_state, "Invalid folder path"
-    
-    images = []
-    for filename in sorted(os.listdir(folder_path)):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            img_path = os.path.join(folder_path, filename)
-            img = cv2.imread(img_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            images.append(img)
-
-    # 更新 video_state
-    video_state["origin_images"] = images
-    video_state["painted_images"] = images.copy()
-    video_state["masks"] = [np.zeros((images[0].shape[0], images[0].shape[1]), np.uint8)] * len(images)
-    video_state["logits"] = [None] * len(images)
-
-    return video_state, f"Loaded {len(images)} images from {folder_path}"
-
-
 def run_example(example):
     return video_input
 # get the select frame from gradio slider
@@ -559,7 +536,6 @@ with gr.Blocks() as iface:
                     # 新增函数：从给定文件夹路径读取所有图片
                     folder_input = gr.Textbox(label="Enter folder path")
                     save_path_input = gr.Textbox(label="Enter path to save masks", value="./result/mask/")
-                    confirm_button = gr.Button("Confirm")  # 新增确认按钮
                     
                     resize_info = gr.Textbox(value="If you want to use the inpaint function, it is best to git clone the repo and use a machine with more VRAM locally. \
                                             Alternatively, you can use the resize ratio slider to scale down the original image to around 360P resolution for faster processing.", label="Tips for running this demo.")
@@ -608,13 +584,6 @@ with gr.Blocks() as iface:
                  image_selection_slider, track_pause_number_slider,point_prompt, clear_button_click, Add_mask_button, template_frame,
                  tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button, inpaint_video_predict_button, mask_save_button, run_status]
     )   
-    
-    # 使用确认按钮触发图片读取
-    confirm_button.click(
-        fn=get_images_from_folder,
-        inputs=[folder_input, video_state],
-        outputs=[video_state, video_info]
-    )
 
     # second step: select images from slider
     image_selection_slider.release(fn=select_template, 

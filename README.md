@@ -8,6 +8,12 @@
 
 - [ ] Memory Leak Problem, Espically for refresh page and upload many video
 
+## input images folder
+
+<div align=center>
+<img src="./assets/input_folder_operate.png" width="95%"/>
+</div>
+
 # Origin
 
 <!-- ![](./assets/track-anything-logo.jpg) -->
