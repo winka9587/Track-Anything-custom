@@ -150,9 +150,10 @@ def get_frames_from_video2(video_input, folder_input, video_state):
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frames.append(frame)
-                frame_names.append("{:04d}".format(i))
+                frame_names.append("{:05d}".format(i))
             else:
                 break
+            i+=1
         cap.release()
         video_info = f"Extracted {len(frames)} frames from video."
         input_name = os.path.split(video_path)[-1]
@@ -160,13 +161,15 @@ def get_frames_from_video2(video_input, folder_input, video_state):
     elif folder_input is not None and os.path.exists(folder_input):
         operation_log = [("",""),("Upload img folder already. Try click the image for adding targets to track and inpaint.","Normal")]
         # 从文件夹中读取图片作为帧
+        i = 0
         for filename in sorted(os.listdir(folder_input)):
             if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                 img_path = os.path.join(folder_input, filename)
                 img = cv2.imread(img_path)
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 frames.append(img)
-                frame_names.append("{:04d}".format(int(filename.split('.')[0])))
+                frame_names.append("{:05d}".format(i))
+                i+=1
         video_info = f"Loaded {len(frames)} images from folder."
         input_name = folder_input.replace("/", "_").replace("\\", "_")+".mp4"
         fps = 30
