@@ -12,6 +12,8 @@
 
 - [ ] mask选择部分设置为1(1是指instance_id, 只需要class_id设置好即可), 其他部分为0
 
+<a align=center href="./Wild6d_dataclean.md">wild6d数据重新生成mask</a>
+
 # Origin
 
 <!-- ![](./assets/track-anything-logo.jpg) -->
