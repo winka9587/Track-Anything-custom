@@ -134,12 +134,13 @@ def get_frames_from_video(video_input, video_state):
                         gr.update(visible=True), \
                         gr.update(visible=True, value=operation_log)
 
-def get_frames_from_video2(video_input, folder_input, video_state):
+def get_frames_from_video2(video_input, folder_input_raw, video_state):
     user_name = time.time()
     frames = []
     frame_names = []
     print("video_input: {}".format(video_input))
-    print("folder_input: {}".format(folder_input))
+    print("folder_input: {}".format(folder_input_raw))
+    folder_input = folder_input_raw.split("*")[0]
     if video_input is not None and os.path.exists(video_input):
         # 从视频文件中提取帧
         operation_log = [("",""),("Upload video already. Try click the image for adding targets to track and inpaint.","Normal")]
@@ -153,6 +154,7 @@ def get_frames_from_video2(video_input, folder_input, video_state):
                 frame_names.append("{:04d}".format(i))
             else:
                 break
+            i+=1
         cap.release()
         video_info = f"Extracted {len(frames)} frames from video."
         input_name = os.path.split(video_path)[-1]
@@ -160,13 +162,19 @@ def get_frames_from_video2(video_input, folder_input, video_state):
     elif folder_input is not None and os.path.exists(folder_input):
         operation_log = [("",""),("Upload img folder already. Try click the image for adding targets to track and inpaint.","Normal")]
         # 从文件夹中读取图片作为帧
+        if len(folder_input_raw.split('*')) > 1:
+            folder_suffix = (folder_input_raw.split('*')[1])
+        else:
+            folder_suffix = ('.png', '.jpg', '.jpeg')
+        print("folder_suffix: {}".format(folder_suffix))
+        
         for filename in sorted(os.listdir(folder_input)):
-            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            if filename.lower().endswith(folder_suffix):
                 img_path = os.path.join(folder_input, filename)
                 img = cv2.imread(img_path)
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 frames.append(img)
-                frame_names.append("{:04d}".format(int(filename.split('.')[0])))
+                frame_names.append("{}".format(filename.split('.')[0]))
         video_info = f"Loaded {len(frames)} images from folder."
         input_name = folder_input.replace("/", "_").replace("\\", "_")+".mp4"
         fps = 30
@@ -183,7 +191,9 @@ def get_frames_from_video2(video_input, folder_input, video_state):
         "masks": [np.zeros((frames[0].shape[0],frames[0].shape[1]), np.uint8)]*len(frames),
         "logits": [None]*len(frames),
         "select_frame_number": 0,
-        "fps": fps
+        "fps": fps,
+        "image_input_path": folder_input,
+        "image_input_suffix": folder_suffix
         }
     model.samcontroler.sam_controler.reset_image() 
     model.samcontroler.sam_controler.set_image(video_state["origin_images"][0])
@@ -195,28 +205,6 @@ def get_frames_from_video2(video_input, folder_input, video_state):
                         gr.update(visible=True), gr.update(visible=True), \
                         gr.update(visible=True), \
                         gr.update(visible=True, value=operation_log)
-
-# 新增函数：从给定文件夹路径读取所有图片
-def get_images_from_folder(folder_path, video_state):
-    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        print("Invalid folder path")
-        return video_state, "Invalid folder path"
-    
-    images = []
-    for filename in sorted(os.listdir(folder_path)):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            img_path = os.path.join(folder_path, filename)
-            img = cv2.imread(img_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            images.append(img)
-
-    # 更新 video_state
-    video_state["origin_images"] = images
-    video_state["painted_images"] = images.copy()
-    video_state["masks"] = [np.zeros((images[0].shape[0], images[0].shape[1]), np.uint8)] * len(images)
-    video_state["logits"] = [None] * len(images)
-
-    return video_state, f"Loaded {len(images)} images from {folder_path}"
 
 
 def run_example(example):
@@ -448,10 +436,27 @@ def generate_video_from_frames(frames, output_path, fps=30):
     torchvision.io.write_video(output_path, frames, fps=fps, video_codec="libx264")
     return output_path
 
-def mask_save_frome_video(video_state, interactive_state, mask_dropdown, save_path):
-    if not save_path:
-        save_path = './result/mask/'
-    final_save_path = os.path.join(save_path, video_state["video_name"].split('.')[0])
+def wild6d_mask_process(mask):
+    # 生成的mask, (640, 480)单通道, 目标像素是1, 非目标像素0
+    mask[mask == 0] = 255
+    mask_3_channels = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
+    return mask_3_channels
+
+
+# 当folder_input的输入改变时, 修改保存路径save_path_input的内容
+def process_folder_path(folder_input):
+    # 
+    if folder_input:
+        input_content = folder_input.split('*')
+        save_path = input_content[0]
+    return save_path
+
+def mask_save_frome_video(video_state, save_path_input):
+    # if not save_path:
+    #     save_path = './result/mask/'
+    # final_save_path = os.path.join(save_path, video_state["video_name"].split('.')[0])
+    # final_save_path = video_state['image_input_path'] # save_path_input
+    final_save_path = save_path_input
     operation_log = [("",""), ("save mask to {}".format(final_save_path), "Normal")]
     
     if video_state["video_name"] == '':
@@ -463,11 +468,10 @@ def mask_save_frome_video(video_state, interactive_state, mask_dropdown, save_pa
     try:
         # for mask in video_state["masks"]:
         for i in range(len(video_state["masks"])):
-            mask = video_state["masks"][i]    
-            # interactive_state["multi_mask"]["masks"]
-            save_mask_i_path = os.path.join(final_save_path, '{}.png'.format(video_state['origin_image_names'][i]))
+            mask = video_state["masks"][i] 
+            save_mask_i_path = os.path.join(final_save_path, '{}.png'.format(video_state['origin_image_names'][i])).replace('_color', '_mask')
             print("save mask: {}".format(save_mask_i_path))
-            cv2.imwrite(save_mask_i_path, mask)
+            cv2.imwrite(save_mask_i_path, wild6d_mask_process(mask))
     except:
         operation_log = [("Error! Something wrong when saving mask image to: {}".format(final_save_path),"Error"), ("","")]
     return operation_log
@@ -498,7 +502,7 @@ folder ="./checkpoints"
 SAM_checkpoint = download_checkpoint(sam_checkpoint_url, folder, sam_checkpoint)
 xmem_checkpoint = download_checkpoint(xmem_checkpoint_url, folder, xmem_checkpoint)
 e2fgvi_checkpoint = download_checkpoint_from_google_drive(e2fgvi_checkpoint_id, folder, e2fgvi_checkpoint)
-args.port = 12211
+# args.port = 12211
 # args.device = "cuda:3"
 # args.mask_save = True
 
@@ -556,7 +560,6 @@ with gr.Blocks() as iface:
                     # 新增函数：从给定文件夹路径读取所有图片
                     folder_input = gr.Textbox(label="Enter folder path")
                     save_path_input = gr.Textbox(label="Enter path to save masks", value="./result/mask/")
-                    confirm_button = gr.Button("Confirm")  # 新增确认按钮
                     
                     resize_info = gr.Textbox(value="If you want to use the inpaint function, it is best to git clone the repo and use a machine with more VRAM locally. \
                                             Alternatively, you can use the resize ratio slider to scale down the original image to around 360P resolution for faster processing.", label="Tips for running this demo.")
@@ -606,11 +609,10 @@ with gr.Blocks() as iface:
                  tracking_video_predict_button, video_output, mask_dropdown, remove_mask_button, inpaint_video_predict_button, mask_save_button, run_status]
     )   
     
-    # 使用确认按钮触发图片读取
-    confirm_button.click(
-        fn=get_images_from_folder,
-        inputs=[folder_input, video_state],
-        outputs=[video_state, video_info]
+    folder_input.change(
+        fn=process_folder_path,
+        inputs=[folder_input],
+        outputs=[save_path_input]
     )
 
     # second step: select images from slider
@@ -660,7 +662,7 @@ with gr.Blocks() as iface:
     
     mask_save_button.click(
         fn=mask_save_frome_video,
-        inputs=[video_state, interactive_state, mask_dropdown, save_path_input],
+        inputs=[video_state, save_path_input],
         outputs=[run_status]
     )
     # click to get mask

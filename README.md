@@ -2,11 +2,15 @@
 
 - [x] Add mark image save function.
 
-- [ ] Customize save_path and remind save status
+- [x] Customize save_path and remind save status
 
-- [ ] Report error after click MaskSave button
+- [x] Report error after click MaskSave button
 
 - [ ] Memory Leak Problem, Espically for refresh page and upload many video
+
+- [ ] 保存mask到与读取路径相同的目录下
+
+- [ ] mask选择部分设置为1(1是指instance_id, 只需要class_id设置好即可), 其他部分为0
 
 # Origin
 
